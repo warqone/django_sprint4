@@ -11,7 +11,7 @@ class Location(PublishedModel):
     name = models.CharField('Название места', max_length=256)
 
     class Meta:
-        verbose_name = 'местоположение'
+        verbose_name = 'местоположения'
         verbose_name_plural = 'Местоположения'
 
     def __str__(self):
