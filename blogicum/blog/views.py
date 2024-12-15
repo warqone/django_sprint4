@@ -1,8 +1,11 @@
+from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
 from blog.constants import POSTS_LIMIT
 from blog.models import Category, Post
+
+User = get_user_model()
 
 
 def get_posts():
@@ -50,3 +53,10 @@ def category_posts(request, category_slug):
         'post_list': post_list,
     }
     return render(request, 'blog/category.html', context)
+
+
+def get_profile(request, username):
+    user = get_object_or_404(
+        User.objects.all(), username=username
+    )
+    return render(request, 'blog/profile.html', {'profile': user})
