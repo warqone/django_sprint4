@@ -11,7 +11,7 @@ class Location(PublishedModel):
     name = models.CharField('Название места', max_length=256)
 
     class Meta:
-        verbose_name = 'местоположения'
+        verbose_name = 'местоположение'
         verbose_name_plural = 'Местоположения'
 
     def __str__(self):
@@ -67,6 +67,7 @@ class Post(PublishedModel):
         on_delete=models.SET_NULL,
         verbose_name='Категория'
     )
+    image = models.ImageField('Фото', upload_to='posts_images', blank=True)
 
     class Meta:
         ordering = ('-pub_date',)
@@ -76,3 +77,17 @@ class Post(PublishedModel):
 
     def __str__(self):
         return self.title[:LETTER_LIMIT]
+
+
+class Comments(models.Model):
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='comments',
+    )
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    text = models.TextField('Текст комментария')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('created_at',)
