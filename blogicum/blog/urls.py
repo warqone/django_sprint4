@@ -12,7 +12,7 @@ urlpatterns = [
          name='create_post'),
     path('posts/<int:post_id>/edit/', views.post_update,
          name='edit_post'),
-    path('posts/<int:post_id>/delete/', views.PostDeleteView.as_view(),
+    path('posts/<int:post_id>/delete/', views.post_delete,
          name='delete_post'),
     path('posts/<int:post_id>/comment/', views.add_comment,
          name='add_comment'),
@@ -24,7 +24,8 @@ urlpatterns = [
          name='delete_comment'),
     path('category/<slug:category_slug>/', views.category_posts,
          name='category_posts'),
-    path('profile/<str:username>/', views.get_profile, name='profile'),
-    path('profile/<str:username>/edit', views.edit_profile,
+    path('profile/<str:username>/', views.get_profile,
+         name='profile'),
+    path('profile/<str:username>/edit/', views.edit_profile,
          name='edit_profile')
 ]

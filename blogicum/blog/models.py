@@ -88,10 +88,21 @@ class Comments(models.Model):
         Post,
         on_delete=models.CASCADE,
         related_name='comments',
+        verbose_name='Пост'
     )
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Автор'
+    )
     text = models.TextField('Текст комментария')
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return self.text[:LETTER_LIMIT]
+
     class Meta:
         ordering = ('created_at',)
+        default_related_name = ('comments')
+        verbose_name = 'комментарий'
+        verbose_name_plural = 'Комментарии'

@@ -1,27 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
-from django.db.models import Count
 from django.shortcuts import get_object_or_404, render, redirect
-from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import (
-    CreateView, DeleteView, DetailView, ListView, UpdateView
-)
 
 from blog.constants import POSTS_LIMIT
-from blog.forms import PostForm, EditProfileForm, PostEditForm, CommentForm
+from blog.forms import PostForm, EditProfileForm, CommentForm
 from blog.models import Category, Post, Comments
 
 User = get_user_model()
-
-
-class OnlyAuthorMixin(UserPassesTestMixin):
-
-    def test_func(self):
-        object = self.get_object()
-        return object.author == self.request.user
 
 
 def get_posts():
@@ -44,20 +31,16 @@ def homepage(request):
 
 
 def post_detail(request, post_id):
-    post = get_object_or_404(
-        Post, pk=post_id
-    )
+    post = get_object_or_404(Post, id=post_id)
     if post.author != request.user:
         post = get_object_or_404(
-            Post, pk=post_id,
+            Post, id=post_id,
             category__is_published=True,
             is_published=True,
         )
-    comments = Comments.objects.all().filter(post=post_id)
+    comments = Comments.objects.select_related('post').filter(post_id=post_id)
     form = CommentForm(request.POST or None)
-    context = {
-        'form': form, 'post': post, 'comments': comments
-    }
+    context = {'form': form, 'post': post, 'comments': comments}
     if form.is_valid():
         form.save()
         return redirect('blog:profile', username=request.user)
@@ -85,7 +68,7 @@ def category_posts(request, category_slug):
     return render(request, 'blog/category.html', context)
 
 
-def get_profile(request, username):
+def get_profile(request, username=None):
     user = get_object_or_404(User, username=username)
     post_list = Post.objects.select_related(
         'author',
@@ -110,7 +93,7 @@ def edit_profile(request, username):
     form = EditProfileForm(request.POST or None, instance=user)
     if form.is_valid():
         form.save()
-        return redirect('blog:profile')
+        return redirect('blog:profile', username=request.user)
     context = {'form': form}
     return render(request, 'blog/user.html', context)
 
@@ -129,7 +112,7 @@ def create_post(request):
 def post_update(request, post_id):
     if not request.user.is_authenticated:
         return redirect('login')
-    instance = get_object_or_404(Post, pk=post_id)
+    instance = get_object_or_404(Post, id=post_id)
     if instance.author != request.user:
         return redirect('blog:post_detail', post_id=post_id)
     form = PostForm(request.POST or None, instance=instance,
@@ -140,20 +123,19 @@ def post_update(request, post_id):
     return render(request, 'blog/create.html', {'form': form})
 
 
-class PostDeleteView(OnlyAuthorMixin, LoginRequiredMixin, DeleteView):
-    model = Post
-    form_class = PostEditForm
-    template_name = 'blog/create.html'
-    success_url = reverse_lazy('blog:index')
-
-    def get_object(self, queryset=None):
-        return get_object_or_404(Post, id=self.kwargs['post_id'])
+def post_delete(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    if request.method == 'POST' and post.author == request.user:
+        post.delete()
+        return redirect('blog:profile', username=request.user)
+    form = PostForm(instance=post)
+    return render(request, 'blog/create.html', {'form': form})
 
 
 @login_required
 def add_comment(request, post_id):
     user = get_object_or_404(User, username=request.user)
-    post = get_object_or_404(Post, pk=post_id)
+    post = get_object_or_404(Post, id=post_id)
     form = CommentForm(request.POST or None)
     context = {
         'post': post,
@@ -168,7 +150,6 @@ def add_comment(request, post_id):
     return render(request, 'blog/detail.html', context)
 
 
-@login_required
 def edit_comment(request, post_id, comment_id):
     instance = get_object_or_404(Comments, post_id=post_id, pk=comment_id)
     if instance.author != request.user:
@@ -184,7 +165,6 @@ def edit_comment(request, post_id, comment_id):
     return render(request, 'blog/comment.html', context)
 
 
-@login_required
 def delete_comment(request, post_id, comment_id):
     instance = get_object_or_404(Comments, post_id=post_id, pk=comment_id)
     context = {
