@@ -78,6 +78,10 @@ class Post(PublishedModel):
     def __str__(self):
         return self.title[:LETTER_LIMIT]
 
+    @property
+    def comment_count(self):
+        return self.comments.count()
+
 
 class Comments(models.Model):
     post = models.ForeignKey(

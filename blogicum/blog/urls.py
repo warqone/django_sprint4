@@ -4,13 +4,13 @@ from blog import views
 app_name = 'blog'
 
 urlpatterns = [
-    path('', views.PostListView.as_view(),
+    path('', views.homepage,
          name='index'),
-    path('posts/<int:post_id>/', views.PostDetailView.as_view(),
+    path('posts/<int:post_id>/', views.post_detail,
          name='post_detail'),
-    path('posts/create/', views.PostCreateView.as_view(),
+    path('posts/create/', views.create_post,
          name='create_post'),
-    path('posts/<int:post_id>/edit/', views.PostUpdateView.as_view(),
+    path('posts/<int:post_id>/edit/', views.post_update,
          name='edit_post'),
     path('posts/<int:post_id>/delete/', views.PostDeleteView.as_view(),
          name='delete_post'),
@@ -22,7 +22,7 @@ urlpatterns = [
     path('posts/<int:post_id>/delete_comment/<int:comment_id>/',
          views.delete_comment,
          name='delete_comment'),
-    path('category/<slug:category_slug>/', views.CategoryPostsView.as_view(),
+    path('category/<slug:category_slug>/', views.category_posts,
          name='category_posts'),
     path('profile/<str:username>/', views.get_profile, name='profile'),
     path('profile/<str:username>/edit', views.edit_profile,

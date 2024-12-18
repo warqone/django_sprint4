@@ -5,9 +5,9 @@ from django.contrib.auth.forms import UserCreationForm
 from django.urls import include, path, reverse_lazy
 from django.views.generic.edit import CreateView
 
-handler403 = 'blogicum.exceptions.forbidden_access'
-handler404 = 'blogicum.exceptions.page_not_found'
-handler500 = 'blogicum.exceptions.server_error'
+handler403 = 'pages.views.forbidden_access'
+handler404 = 'pages.views.page_not_found'
+handler500 = 'pages.views.server_error'
 
 urlpatterns = [
     path('pages/', include('pages.urls', namespace='pages')),

@@ -14,8 +14,6 @@ from blog.constants import POSTS_LIMIT
 from blog.forms import PostForm, EditProfileForm, PostEditForm, CommentForm
 from blog.models import Category, Post, Comments
 
-from blogicum.urls import handler500
-
 User = get_user_model()
 
 
@@ -26,103 +24,73 @@ class OnlyAuthorMixin(UserPassesTestMixin):
         return object.author == self.request.user
 
 
-class PostListView(ListView):
-    model = Post
-    template_name = 'blog/index.html'
-    paginate_by = POSTS_LIMIT
+def get_posts():
+    return Post.objects.select_related(
+        'author', 'category', 'location',
+    ).filter(
+        is_published=True,
+        category__is_published=True,
+        pub_date__lte=timezone.now()
+    ).order_by('-pub_date')
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        # Передаем request.FILES в форму для обработки файлов
-        kwargs['files'] = self.request.FILES
-        return kwargs
 
-    def get_queryset(self):
-        return Post.objects.select_related(
-            'author', 'category', 'location',
-        ).annotate(
-            comment_count=Count('comments')
-        ).filter(
-            is_published=True,
+def homepage(request):
+    post_list = get_posts()
+    paginator = Paginator(post_list, POSTS_LIMIT)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    context = {'page_obj': page_obj}
+    return render(request, 'blog/index.html', context)
+
+
+def post_detail(request, post_id):
+    post = get_object_or_404(
+        Post, pk=post_id
+    )
+    if post.author != request.user:
+        post = get_object_or_404(
+            Post, pk=post_id,
             category__is_published=True,
-            pub_date__lte=timezone.now()
-        ).order_by('-pub_date')
-
-
-class PostDetailView(DetailView):
-    model = Post
-    template_name = 'blog/detail.html'
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        # Передаем request.FILES в форму для обработки файлов
-        kwargs['files'] = self.request.FILES
-        return kwargs
-
-    def get_object(self, queryset=None):
-        return get_object_or_404(Post, id=self.kwargs['post_id'])
-
-    def get_queryset(self):
-        return Post.objects.select_related(
-            'author', 'category', 'location'
-        ).filter(
             is_published=True,
-            category__is_published=True,
-            pub_date__lte=timezone.now()
         )
+    comments = Comments.objects.all().filter(post=post_id)
+    form = CommentForm(request.POST or None)
+    context = {
+        'form': form, 'post': post, 'comments': comments
+    }
+    if form.is_valid():
+        form.save()
+        return redirect('blog:profile', username=request.user)
+    return render(request, 'blog/detail.html', context)
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['form'] = CommentForm()
-        context['comments'] = (
-            self.object.comments.select_related('author')
-        )
-        return context
 
-
-class CategoryPostsView(ListView):
-    model = Post
-    template_name = 'blog/category.html'
-    paginate_by = POSTS_LIMIT
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        # Передаем request.FILES в форму для обработки файлов
-        kwargs['files'] = self.request.FILES
-        return kwargs
-
-    def get_queryset(self):
-        category_slug = self.kwargs['category_slug']
-        category = get_object_or_404(
-            Category, slug=category_slug, is_published=True
-        )
-        return Post.objects.select_related(
-            'author', 'category', 'location'
-        ).filter(
-            category=category,
-            is_published=True,
-            category__is_published=True,
-            pub_date__lte=timezone.now()
-        ).order_by('-pub_date')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        category_slug = self.kwargs['category_slug']
-        category = get_object_or_404(Category, slug=category_slug)
-        context['category'] = category
-        return context
+def category_posts(request, category_slug):
+    post_list = get_posts().filter(
+        category__slug=category_slug
+    )
+    category = get_object_or_404(
+        Category.objects.values(
+            'title',
+            'description',
+        ), slug=category_slug,
+        is_published=True
+    )
+    paginator = Paginator(post_list, POSTS_LIMIT)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    context = {
+        'category': category,
+        'page_obj': page_obj,
+    }
+    return render(request, 'blog/category.html', context)
 
 
 def get_profile(request, username):
-    user = get_object_or_404(
-        User.objects.all(), username=username
-    )
+    user = get_object_or_404(User, username=username)
     post_list = Post.objects.select_related(
         'author',
         'category',
         'location',
-    ).annotate(
-        comment_count=Count('comments')
     ).filter(
         author__username=username
     ).order_by('-pub_date')
@@ -147,39 +115,29 @@ def edit_profile(request, username):
     return render(request, 'blog/user.html', context)
 
 
-class PostCreateView(LoginRequiredMixin, CreateView):
-    model = Post
-    form_class = PostForm
-    template_name = 'blog/create.html'
-
-    def form_valid(self, form):
-        # Присвоить полю author объект пользователя из запроса.
-        form.instance.author = self.request.user
-        # Продолжить валидацию, описанную в форме.
-        return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse_lazy(
-            'blog:profile',
-            kwargs={'username': self.request.user.get_username()}
-        )
+@login_required
+def create_post(request):
+    form = PostForm(request.POST or None, files=request.FILES or None)
+    if form.is_valid():
+        post = form.save(commit=False)
+        post.author = request.user
+        post.save()
+        return redirect('blog:profile', username=request.user)
+    return render(request, 'blog/create.html', {'form': form})
 
 
-class PostUpdateView(LoginRequiredMixin, OnlyAuthorMixin, UpdateView):
-    model = Post
-    form_class = PostEditForm
-    template_name = 'blog/create.html'
-
-    def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('blog:post_detail', post_id=self.kwargs['post_id'])
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_object(self, queryset=None):
-        return Post.objects.get(id=self.kwargs['post_id'])
-
-    def get_success_url(self):
-        return reverse_lazy('blog:post_detail', kwargs={'post_id': self.object.id})
+def post_update(request, post_id):
+    if not request.user.is_authenticated:
+        return redirect('login')
+    instance = get_object_or_404(Post, pk=post_id)
+    if instance.author != request.user:
+        return redirect('blog:post_detail', post_id=post_id)
+    form = PostForm(request.POST or None, instance=instance,
+                    files=request.FILES or None)
+    if form.is_valid():
+        form.save()
+        return redirect('blog:post_detail', post_id=post_id)
+    return render(request, 'blog/create.html', {'form': form})
 
 
 class PostDeleteView(OnlyAuthorMixin, LoginRequiredMixin, DeleteView):
@@ -189,7 +147,7 @@ class PostDeleteView(OnlyAuthorMixin, LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy('blog:index')
 
     def get_object(self, queryset=None):
-        return Post.objects.get(id=self.kwargs['post_id'])
+        return get_object_or_404(Post, id=self.kwargs['post_id'])
 
 
 @login_required
