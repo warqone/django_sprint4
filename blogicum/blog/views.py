@@ -12,6 +12,7 @@ User = get_user_model()
 
 
 def get_posts():
+    """Функция, возвращающая базовый набор опубликованных постов."""
     return Post.objects.select_related(
         'author', 'category', 'location',
     ).filter(
@@ -22,6 +23,8 @@ def get_posts():
 
 
 def homepage(request):
+    """Функция для главной страницы,"""
+    """возвращающая набор опубликованных постов с постраничным выводом."""
     post_list = get_posts()
     paginator = Paginator(post_list, POSTS_LIMIT)
     page_number = request.GET.get('page')
@@ -31,6 +34,8 @@ def homepage(request):
 
 
 def post_detail(request, post_id):
+    """Функция, возвращающая конкретный пост с открытием"""
+    """комментариев и формы комментариев."""
     post = get_object_or_404(Post, id=post_id)
     if post.author != request.user:
         post = get_object_or_404(
@@ -48,6 +53,8 @@ def post_detail(request, post_id):
 
 
 def category_posts(request, category_slug):
+    """Функция, возвращающая набор"""
+    """опубликованных постов определённой категории."""
     post_list = get_posts().filter(
         category__slug=category_slug
     )
@@ -69,6 +76,8 @@ def category_posts(request, category_slug):
 
 
 def get_profile(request, username=None):
+    """Функция, возвращающая профиль пользователя"""
+    """с постами и информацией профиля."""
     user = get_object_or_404(User, username=username)
     post_list = Post.objects.select_related(
         'author',
@@ -89,6 +98,7 @@ def get_profile(request, username=None):
 
 @login_required
 def edit_profile(request, username):
+    """Функция, для открытия формы редактирования профиля."""
     user = get_object_or_404(User, username=username)
     form = EditProfileForm(request.POST or None, instance=user)
     if form.is_valid():
@@ -100,6 +110,7 @@ def edit_profile(request, username):
 
 @login_required
 def create_post(request):
+    """Функция для создания поста(записи) с формой."""
     form = PostForm(request.POST or None, files=request.FILES or None)
     if form.is_valid():
         post = form.save(commit=False)
@@ -110,6 +121,7 @@ def create_post(request):
 
 
 def post_update(request, post_id):
+    """Функция для редактирования поста."""
     if not request.user.is_authenticated:
         return redirect('login')
     instance = get_object_or_404(Post, id=post_id)
@@ -124,6 +136,7 @@ def post_update(request, post_id):
 
 
 def post_delete(request, post_id):
+    """Функция для удаления поста."""
     post = get_object_or_404(Post, id=post_id)
     if request.method == 'POST' and post.author == request.user:
         post.delete()
@@ -134,6 +147,7 @@ def post_delete(request, post_id):
 
 @login_required
 def add_comment(request, post_id):
+    """Функция, для добавления комментария к записи."""
     user = get_object_or_404(User, username=request.user)
     post = get_object_or_404(Post, id=post_id)
     form = CommentForm(request.POST or None)
@@ -151,6 +165,7 @@ def add_comment(request, post_id):
 
 
 def edit_comment(request, post_id, comment_id):
+    """Функция, для редактирования комментария к записи."""
     instance = get_object_or_404(Comments, post_id=post_id, pk=comment_id)
     if instance.author != request.user:
         return redirect('blog:post_detail', post_id=post_id)
@@ -166,6 +181,7 @@ def edit_comment(request, post_id, comment_id):
 
 
 def delete_comment(request, post_id, comment_id):
+    """Функция, для удаления комментария к записи."""
     instance = get_object_or_404(Comments, post_id=post_id, pk=comment_id)
     context = {
         'comment': instance,
