@@ -2,13 +2,13 @@ from django.contrib.auth import get_user_model
 from django.db import models
 
 from blog.abstract_models import PublishedModel
-from blog.constants import LETTER_LIMIT
+from blog.constants import LETTER_LIMIT, MAX_LENGTH
 
 User = get_user_model()
 
 
 class Location(PublishedModel):
-    name = models.CharField('Название места', max_length=256)
+    name = models.CharField('Название места', max_length=MAX_LENGTH)
 
     class Meta:
         verbose_name = 'местоположение'
@@ -19,7 +19,7 @@ class Location(PublishedModel):
 
 
 class Category(PublishedModel):
-    title = models.CharField('Заголовок', max_length=256)
+    title = models.CharField('Заголовок', max_length=MAX_LENGTH)
     description = models.TextField('Описание')
     slug = models.SlugField(
         'Идентификатор',
@@ -39,7 +39,7 @@ class Category(PublishedModel):
 
 
 class Post(PublishedModel):
-    title = models.CharField('Заголовок', max_length=256)
+    title = models.CharField('Заголовок', max_length=MAX_LENGTH)
     text = models.TextField('Текст')
     pub_date = models.DateTimeField(
         'Дата и время публикации',

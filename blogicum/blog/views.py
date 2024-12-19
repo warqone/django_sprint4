@@ -2,40 +2,28 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, render, redirect
-from django.utils import timezone
 
-from blog.constants import POSTS_LIMIT
 from blog.forms import PostForm, EditProfileForm, CommentForm
 from blog.models import Category, Post, Comments
+from blog.utils import get_posts, get_post_by_id, paginator
 
 User = get_user_model()
 
 
-def get_posts():
-    """Функция, возвращающая базовый набор опубликованных постов."""
-    return Post.objects.select_related(
-        'author', 'category', 'location',
-    ).filter(
-        is_published=True,
-        category__is_published=True,
-        pub_date__lte=timezone.now()
-    ).order_by('-pub_date')
-
-
 def homepage(request):
-    """Функция для главной страницы,"""
-    """возвращающая набор опубликованных постов с постраничным выводом."""
-    post_list = get_posts()
-    paginator = Paginator(post_list, POSTS_LIMIT)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    """Функция для главной страницы,
+    возвращающая набор опубликованных постов с постраничным выводом.
+    """
+    posts = get_posts()
+    page_obj = paginator(posts, request)
     context = {'page_obj': page_obj}
     return render(request, 'blog/index.html', context)
 
 
-def post_detail(request, post_id):
-    """Функция, возвращающая конкретный пост с открытием"""
-    """комментариев и формы комментариев."""
+def post_detail(request, post_id: int):
+    """Функция, возвращающая конкретный пост с открытием
+    комментариев и формы комментариев.
+    """
     post = get_object_or_404(Post, id=post_id)
     if post.author != request.user:
         post = get_object_or_404(
@@ -43,7 +31,7 @@ def post_detail(request, post_id):
             category__is_published=True,
             is_published=True,
         )
-    comments = Comments.objects.select_related('post').filter(post_id=post_id)
+    comments = post.comments.all()
     form = CommentForm(request.POST or None)
     context = {'form': form, 'post': post, 'comments': comments}
     if form.is_valid():
@@ -52,10 +40,11 @@ def post_detail(request, post_id):
     return render(request, 'blog/detail.html', context)
 
 
-def category_posts(request, category_slug):
-    """Функция, возвращающая набор"""
-    """опубликованных постов определённой категории."""
-    post_list = get_posts().filter(
+def category_posts(request, category_slug: str):
+    """Функция, возвращающая набор
+    опубликованных постов определённой категории.
+    """
+    posts = get_posts().filter(
         category__slug=category_slug
     )
     category = get_object_or_404(
@@ -65,9 +54,7 @@ def category_posts(request, category_slug):
         ), slug=category_slug,
         is_published=True
     )
-    paginator = Paginator(post_list, POSTS_LIMIT)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginator(posts, request)
     context = {
         'category': category,
         'page_obj': page_obj,
@@ -75,20 +62,19 @@ def category_posts(request, category_slug):
     return render(request, 'blog/category.html', context)
 
 
-def get_profile(request, username=None):
-    """Функция, возвращающая профиль пользователя"""
-    """с постами и информацией профиля."""
+def get_profile(request, username: str):
+    """Функция, возвращающая профиль пользователя
+    с постами и информацией профиля.
+    """
     user = get_object_or_404(User, username=username)
-    post_list = Post.objects.select_related(
+    posts = Post.objects.select_related(
         'author',
         'category',
         'location',
     ).filter(
         author__username=username
     ).order_by('-pub_date')
-    paginator = Paginator(post_list, POSTS_LIMIT)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginator(posts, request)
     context = {
         'profile': user,
         'page_obj': page_obj,
@@ -97,7 +83,7 @@ def get_profile(request, username=None):
 
 
 @login_required
-def edit_profile(request, username):
+def edit_profile(request, username: str):
     """Функция, для открытия формы редактирования профиля."""
     user = get_object_or_404(User, username=username)
     form = EditProfileForm(request.POST or None, instance=user)
@@ -120,11 +106,12 @@ def create_post(request):
     return render(request, 'blog/create.html', {'form': form})
 
 
-def post_update(request, post_id):
+@login_required
+def post_update(request, post_id: int):
     """Функция для редактирования поста."""
     if not request.user.is_authenticated:
         return redirect('login')
-    instance = get_object_or_404(Post, id=post_id)
+    instance = get_post_by_id(post_id)
     if instance.author != request.user:
         return redirect('blog:post_detail', post_id=post_id)
     form = PostForm(request.POST or None, instance=instance,
@@ -135,9 +122,10 @@ def post_update(request, post_id):
     return render(request, 'blog/create.html', {'form': form})
 
 
-def post_delete(request, post_id):
+@login_required
+def post_delete(request, post_id: int):
     """Функция для удаления поста."""
-    post = get_object_or_404(Post, id=post_id)
+    post = get_post_by_id(post_id)
     if request.method == 'POST' and post.author == request.user:
         post.delete()
         return redirect('blog:profile', username=request.user)
@@ -146,10 +134,9 @@ def post_delete(request, post_id):
 
 
 @login_required
-def add_comment(request, post_id):
+def add_comment(request, post_id: int):
     """Функция, для добавления комментария к записи."""
-    user = get_object_or_404(User, username=request.user)
-    post = get_object_or_404(Post, id=post_id)
+    post = get_post_by_id(post_id)
     form = CommentForm(request.POST or None)
     context = {
         'post': post,
@@ -157,14 +144,14 @@ def add_comment(request, post_id):
     }
     if form.is_valid():
         posts = form.save(commit=False)
-        posts.author = user
+        posts.author = request.user
         posts.post = post
         posts.save()
         return redirect('blog:post_detail', post_id=post_id)
     return render(request, 'blog/detail.html', context)
 
 
-def edit_comment(request, post_id, comment_id):
+def edit_comment(request, post_id: int, comment_id: int):
     """Функция, для редактирования комментария к записи."""
     instance = get_object_or_404(Comments, post_id=post_id, pk=comment_id)
     if instance.author != request.user:
@@ -180,7 +167,7 @@ def edit_comment(request, post_id, comment_id):
     return render(request, 'blog/comment.html', context)
 
 
-def delete_comment(request, post_id, comment_id):
+def delete_comment(request, post_id: int, comment_id: int):
     """Функция, для удаления комментария к записи."""
     instance = get_object_or_404(Comments, post_id=post_id, pk=comment_id)
     context = {
