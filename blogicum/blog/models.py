@@ -5,6 +5,7 @@ from blog.abstract_models import PublishedModel
 from blog.constants import LETTER_LIMIT, MAX_LENGTH
 
 User = get_user_model()
+#  Оптимизировал как смог, чтобы не было ошибок pytest и в работе сайта.
 
 
 class Location(PublishedModel):

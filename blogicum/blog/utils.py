@@ -14,12 +14,16 @@ def get_posts():
         is_published=True,
         category__is_published=True,
         pub_date__lte=timezone.now()
-    ).order_by('-pub_date')
+    )
 
-def get_post_by_id(id, **args):
+
+def get_post_by_id(id):
+    """Функция, возвращающая пост либо 404 по заданному ID."""
     return get_object_or_404(Post, id=id)
 
+
 def paginator(objects, request):
+    """Функция, для постраничного вывода постов либо другой информации."""
     paginator = Paginator(objects, POSTS_LIMIT)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)

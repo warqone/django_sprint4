@@ -73,7 +73,7 @@ def get_profile(request, username: str):
         'location',
     ).filter(
         author__username=username
-    ).order_by('-pub_date')
+    )
     page_obj = paginator(posts, request)
     context = {
         'profile': user,
@@ -85,8 +85,7 @@ def get_profile(request, username: str):
 @login_required
 def edit_profile(request, username: str):
     """Функция, для открытия формы редактирования профиля."""
-    user = get_object_or_404(User, username=username)
-    form = EditProfileForm(request.POST or None, instance=user)
+    form = EditProfileForm(request.POST or None, instance=request.user)
     if form.is_valid():
         form.save()
         return redirect('blog:profile', username=request.user)
@@ -111,10 +110,10 @@ def post_update(request, post_id: int):
     """Функция для редактирования поста."""
     if not request.user.is_authenticated:
         return redirect('login')
-    instance = get_post_by_id(post_id)
-    if instance.author != request.user:
+    post = get_post_by_id(post_id)
+    if post.author != request.user:
         return redirect('blog:post_detail', post_id=post_id)
-    form = PostForm(request.POST or None, instance=instance,
+    form = PostForm(request.POST or None, instance=post,
                     files=request.FILES or None)
     if form.is_valid():
         form.save()
@@ -151,6 +150,7 @@ def add_comment(request, post_id: int):
     return render(request, 'blog/detail.html', context)
 
 
+@login_required
 def edit_comment(request, post_id: int, comment_id: int):
     """Функция, для редактирования комментария к записи."""
     instance = get_object_or_404(Comments, post_id=post_id, pk=comment_id)
@@ -167,6 +167,7 @@ def edit_comment(request, post_id: int, comment_id: int):
     return render(request, 'blog/comment.html', context)
 
 
+@login_required
 def delete_comment(request, post_id: int, comment_id: int):
     """Функция, для удаления комментария к записи."""
     instance = get_object_or_404(Comments, post_id=post_id, pk=comment_id)
