@@ -108,8 +108,6 @@ def create_post(request):
 @login_required
 def post_update(request, post_id: int):
     """Функция для редактирования поста."""
-    if not request.user.is_authenticated:
-        return redirect('login')
     post = get_post_by_id(post_id)
     if post.author != request.user:
         return redirect('blog:post_detail', post_id=post_id)
