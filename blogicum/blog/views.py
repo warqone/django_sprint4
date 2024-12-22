@@ -23,7 +23,7 @@ def post_detail(request, post_id: int):
     """Функция, возвращающая конкретный пост с открытием
     комментариев и формы комментариев.
     """
-    post = get_object_or_404(Post, id=post_id)
+    post = get_post_by_id(post_id)
     if post.author != request.user:
         post = get_object_or_404(
             Post, id=post_id,
